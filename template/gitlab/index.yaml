@@ -289,7 +289,7 @@ kind: Ingress
 metadata:
   name: ingress-gitlab
   labels:
-    cloud.sealos.io/app-deploy-manager: gitlab
+    cloud.sealos.io/app-deploy-manager: ${{ defaults.app_name }}
     cloud.sealos.io/app-deploy-manager-domain: ${{ defaults.app_host }}
   annotations:
     kubernetes.io/ingress.class: nginx

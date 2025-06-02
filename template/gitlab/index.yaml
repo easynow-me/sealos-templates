@@ -38,6 +38,12 @@ spec:
     secret_otp_key:
       type: string
       value: ${{ random(64) }}
+  inputs:
+    volume_size:
+      description: 'save data size (Gi)'
+      type: string
+      default: '1'
+      required: false
 
 ---
 apiVersion: v1
@@ -45,13 +51,13 @@ kind: PersistentVolumeClaim
 metadata:
   name: ${{ defaults.app_name }}-data-pvc
   labels:
-    cloud.sealos.io/app-deploy-manager: ${{ defaults.app_name }}-gitlab
+    cloud.sealos.io/app-deploy-manager: ${{ defaults.app_name }}
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 10Gi
+      storage: ${{ inputs.volume_size }}Gi
 ---
 apiVersion: apps/v1
 kind: Deployment

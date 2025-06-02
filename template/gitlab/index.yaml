@@ -186,14 +186,14 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: gitlab
+    app: ${{ defaults.app_name }}
     cloud.sealos.io/app-deploy-manager: gitlab
-  name: gitlab
+  name: ${{ defaults.app_name }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: gitlab
+      app: ${{ defaults.app_name }}
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -202,7 +202,7 @@ spec:
   template:
     metadata:
       labels:
-        app: gitlab
+        app: ${{ defaults.app_name }}
     spec:
       containers:
         - env:
@@ -274,7 +274,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: gitlab
+  name: ${{ defaults.app_name }}
   labels:
     cloud.sealos.io/app-deploy-manager: gitlab
 spec:
@@ -282,7 +282,7 @@ spec:
     - port: 80
       targetPort: 80
   selector:
-    app: gitlab
+    app: ${{ defaults.app_name }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -312,10 +312,10 @@ spec:
             path: /
             backend:
               service:
-                name: gitlab
+                name: ${{ defaults.app_name }}
                 port:
                   number: 80
   tls:
     - hosts:
         - ${{ defaults.app_host }}.${{ SEALOS_CLOUD_DOMAIN }}
-      secretName: wildcard-cert
+      secretName: ${{ SEALOS_CERT_SECRET_NAME }}

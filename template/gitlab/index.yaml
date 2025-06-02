@@ -42,7 +42,7 @@ spec:
     volume_size:
       description: 'save data size (Gi)'
       type: string
-      default: '1'
+      default: '3'
       required: false
 
 ---
@@ -293,7 +293,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ingress-gitlab
+  name: ${{ defaults.app_name }}
   labels:
     cloud.sealos.io/app-deploy-manager: ${{ defaults.app_name }}
     cloud.sealos.io/app-deploy-manager-domain: ${{ defaults.app_host }}

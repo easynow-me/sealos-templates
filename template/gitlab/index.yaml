@@ -43,9 +43,9 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: data-pvc
+  name: ${{ defaults.app_name }}-data-pvc
   labels:
-    cloud.sealos.io/app-deploy-manager: gitlab
+    cloud.sealos.io/app-deploy-manager: ${{ defaults.app_name }}-gitlab
 spec:
   accessModes:
     - ReadWriteOnce
@@ -57,14 +57,14 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: redis
-    cloud.sealos.io/app-deploy-manager: redis
-  name: redis
+    app: ${{ defaults.app_name }}-redis
+    cloud.sealos.io/app-deploy-manager: ${{ defaults.app_name }}-redis
+  name: ${{ defaults.app_name }}-redis
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: redis
+      app: ${{ defaults.app_name }}-redis
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -73,10 +73,10 @@ spec:
   template:
     metadata:
       labels:
-        app: redis
+        app: ${{ defaults.app_name }}-redis
     spec:
       containers:
-        - name: redis
+        - name: ${{ defaults.app_name }}-redis
           image: redis
           imagePullPolicy: IfNotPresent
           resources:
@@ -98,33 +98,33 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: data-pvc
+            claimName: ${{ defaults.app_name }}-data-pvc
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: redis-svc
+  name: ${{ defaults.app_name }}-redis-svc
   labels:
-    cloud.sealos.io/app-deploy-manager: redis
+    cloud.sealos.io/app-deploy-manager: ${{ defaults.app_name }}-redis
 spec:
   ports:
     - port: 6379
       targetPort: 6379
   selector:
-    app: redis
+    app: ${{ defaults.app_name }}-redis
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: postgresql
-    cloud.sealos.io/app-deploy-manager: postgresql
-  name: postgresql
+    app: ${{ defaults.app_name }}-postgresql
+    cloud.sealos.io/app-deploy-manager: ${{ defaults.app_name }}-postgresql
+  name: ${{ defaults.app_name }}-postgresql
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: postgresql
+      app: ${{ defaults.app_name }}-postgresql
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -133,10 +133,10 @@ spec:
   template:
     metadata:
       labels:
-        app: postgresql
+        app: ${{ defaults.app_name }}-postgresql
     spec:
       containers:
-        - name: postgresql
+        - name: ${{ defaults.app_name }}-postgresql
           image: kkimurak/sameersbn-postgresql:16
           imagePullPolicy: IfNotPresent
           env:
@@ -167,27 +167,27 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: data-pvc
+            claimName: ${{ defaults.app_name }}-data-pvc
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: postgresql-svc
+  name: ${{ defaults.app_name }}-postgresql-svc
   labels:
-    cloud.sealos.io/app-deploy-manager: postgresql
+    cloud.sealos.io/app-deploy-manager: ${{ defaults.app_name }}-postgresql
 spec:
   ports:
     - port: 5432
       targetPort: 5432
   selector:
-    app: postgresql
+    app: ${{ defaults.app_name }}-postgresql
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
     app: ${{ defaults.app_name }}
-    cloud.sealos.io/app-deploy-manager: gitlab
+    cloud.sealos.io/app-deploy-manager: ${{ defaults.app_name }}
   name: ${{ defaults.app_name }}
 spec:
   replicas: 1
@@ -207,7 +207,7 @@ spec:
       containers:
         - env:
             - name: DB_HOST
-              value: postgresql-svc
+              value: ${{ defaults.app_name }}-postgresql-svc
             - name: DB_NAME
               value: gitlab
             - name: DB_USER
@@ -225,7 +225,7 @@ spec:
             - name: GITLAB_SECRETS_OTP_KEY_BASE
               value: ${{ defaults.secret_otp_key }}
             - name: REDIS_HOST
-              value: redis-svc
+              value: ${{ defaults.app_name }}-redis-svc
             - name: REDIS_PORT
               value: '6379'
             - name: REDIS_DB_NUMBER
@@ -246,7 +246,7 @@ spec:
               value: 'false'
           image: sameersbn/gitlab:18.0.1
           imagePullPolicy: Always
-          name: gitlab
+          name: ${{ defaults.app_name }}
           ports:
             - containerPort: 80
               name: http
@@ -269,14 +269,14 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: data-pvc
+            claimName: ${{ defaults.app_name }}-data-pvc
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: ${{ defaults.app_name }}
   labels:
-    cloud.sealos.io/app-deploy-manager: gitlab
+    cloud.sealos.io/app-deploy-manager: ${{ defaults.app_name }}
 spec:
   ports:
     - port: 80

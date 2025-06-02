@@ -1,0 +1,321 @@
+apiVersion: app.sealos.io/v1
+kind: Template
+metadata:
+  name: gitlab
+spec:
+  title: 'Gitlab'
+  url: 'https://github.com/sameersbn/docker-gitlab'
+  gitRepo: 'https://github.com/sameersbn/docker-gitlab'
+  author: 'CloudCat'
+  description: 'gitlab'
+  readme: 'https://raw.githubusercontent.com/sameersbn/docker-gitlab/refs/heads/master/README.md'
+  icon: 'https://gitlab.com/assets/logo-911de323fa0def29aaf817fca33916653fc92f3ff31647ac41d2c39bbe243edb.svg'
+  templateType: inline
+  locale: en
+  i18n:
+    zh:
+      title: 'Gitlab'
+      description: 'Gitlab'
+      readme: 'https://raw.githubusercontent.com/sameersbn/docker-gitlab/refs/heads/master/README.md'
+  categories:
+    - tool
+  defaults:
+    app_host:
+      type: string
+      value: gitlab-${{ random(8) }}
+    app_name:
+      type: string
+      value: gitlab-${{ random(8) }}
+    db_pwd:
+      type: string
+      value: ${{ random(8) }}
+    secret_db_key:
+      type: string
+      value: ${{ random(64) }}
+    secret_key:
+      type: string
+      value: ${{ random(64) }}
+    secret_otp_key:
+      type: string
+      value: ${{ random(64) }}
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-pvc
+  labels:
+    cloud.sealos.io/app-deploy-manager: gitlab
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: redis
+    cloud.sealos.io/app-deploy-manager: redis
+  name: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 100m
+              memory: 100Mi
+              ephemeral-storage: 100Mi
+            requests:
+              cpu: 1m
+              memory: 100Mi
+          volumeMounts:
+            - mountPath: /var/lib/redis
+              subPath: redis
+              name: data
+          ports:
+            - containerPort: 6379
+              name: redis
+              protocol: TCP
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-svc
+  labels:
+    cloud.sealos.io/app-deploy-manager: redis
+spec:
+  ports:
+    - port: 6379
+      targetPort: 6379
+  selector:
+    app: redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: postgresql
+    cloud.sealos.io/app-deploy-manager: postgresql
+  name: postgresql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgresql
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: postgresql
+    spec:
+      containers:
+        - name: postgresql
+          image: kkimurak/sameersbn-postgresql:16
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DB_NAME
+              value: gitlab
+            - name: DB_USER
+              value: gitlab
+            - name: DB_PASS
+              value: ${{ defaults.app_host }}
+            - name: DB_EXTENSION
+              value: pg_trgm,btree_gist
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+              ephemeral-storage: 500Mi
+            requests:
+              cpu: 1m
+              memory: 100Mi
+          volumeMounts:
+            - mountPath: /var/lib/postgresql
+              subPath: postgresql
+              name: data
+          ports:
+            - containerPort: 5432
+              name: postgresql
+              protocol: TCP
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql-svc
+  labels:
+    cloud.sealos.io/app-deploy-manager: postgresql
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+  selector:
+    app: postgresql
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: gitlab
+    cloud.sealos.io/app-deploy-manager: gitlab
+  name: gitlab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gitlab
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: gitlab
+    spec:
+      containers:
+        - env:
+            - name: DB_HOST
+              value: postgresql-svc
+            - name: DB_NAME
+              value: gitlab
+            - name: DB_USER
+              value: gitlab
+            - name: DB_PASS
+              value: ${{ defaults.app_host }}
+            - name: TZ
+              value: UTC
+            - name: GITLAB_TIMEZONE
+              value: UTC
+            - name: GITLAB_SECRETS_DB_KEY_BASE
+              value: ${{ defaults.secret_db_key }}
+            - name: GITLAB_SECRETS_SECRET_KEY_BASE
+              value: ${{ defaults.secret_key }}
+            - name: GITLAB_SECRETS_OTP_KEY_BASE
+              value: ${{ defaults.secret_otp_key }}
+            - name: REDIS_HOST
+              value: redis-svc
+            - name: REDIS_PORT
+              value: '6379'
+            - name: REDIS_DB_NUMBER
+              value: '0'
+            - name: GITLAB_HOST
+              value: ${{ defaults.app_host }}.${{ SEALOS_CLOUD_DOMAIN }}
+            - name: GITLAB_PORT
+              value: '443'
+            - name: GITLAB_HTTPS
+              value: 'true'
+            - name: GITLAB_SSH_PORT
+              value: '22'
+            - name: GITLAB_PROJECTS_WIKI
+              value: 'false'
+            - name: GITLAB_PROJECTS_SNIPPETS
+              value: 'false'
+            - name: GITLAB_PROJECTS_ISSUES
+              value: 'false'
+          image: sameersbn/gitlab:18.0.1
+          imagePullPolicy: Always
+          name: gitlab
+          ports:
+            - containerPort: 80
+              name: http
+              protocol: TCP
+            - containerPort: 22
+              name: ssh
+              protocol: TCP
+          resources:
+            limits:
+              cpu: '2'
+              memory: 4Gi
+              ephemeral-storage: 500Mi
+            requests:
+              cpu: 200m
+              memory: 409Mi
+          volumeMounts:
+            - mountPath: /home/git/data
+              subPath: data
+              name: data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitlab
+  labels:
+    cloud.sealos.io/app-deploy-manager: gitlab
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: gitlab
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-gitlab
+  labels:
+    cloud.sealos.io/app-deploy-manager: gitlab
+    cloud.sealos.io/app-deploy-manager-domain: ${{ defaults.app_host }}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-body-size: 32m
+    nginx.ingress.kubernetes.io/ssl-redirect: 'false'
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    nginx.ingress.kubernetes.io/client-body-buffer-size: 64k
+    nginx.ingress.kubernetes.io/proxy-buffer-size: 64k
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '300'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '300'
+    nginx.ingress.kubernetes.io/server-snippet: |
+      client_header_buffer_size 64k;
+      large_client_header_buffers 4 128k;
+spec:
+  rules:
+    - host: ${{ defaults.app_host }}.${{ SEALOS_CLOUD_DOMAIN }}
+      http:
+        paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: gitlab
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - ${{ defaults.app_host }}.${{ SEALOS_CLOUD_DOMAIN }}
+      secretName: wildcard-cert
